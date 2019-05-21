@@ -20,6 +20,7 @@ public:
 public:
 	virtual void SetupInputComponent() override;
 	virtual void Tick(float DeltaSeconds) override;
+	virtual void BeginPlay() override;
 
 	UFUNCTION()
 		void HorizontalMovement(float Amount);
@@ -29,6 +30,10 @@ public:
 		void PrimaryAttack();
 	UFUNCTION()
 		void SecondaryAttack();
+
+
+	TSubclassOf<class UPlayerHUD> HUDClass;
+	class UPlayerHUD* PlayerHUD;
 
 private:
 	void AlignToSight();

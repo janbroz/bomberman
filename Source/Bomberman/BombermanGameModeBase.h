@@ -16,5 +16,15 @@ class BOMBERMAN_API ABombermanGameModeBase : public AGameModeBase
 public:
 	ABombermanGameModeBase();
 
+	virtual void BeginPlay() override;
 	
+private:
+	void SetupPlayerDelegates();
+
+public:
+	UFUNCTION()
+		void BeginRound();
+	UFUNCTION()
+		void PlayerDied();
+
 };
