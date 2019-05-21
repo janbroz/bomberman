@@ -6,6 +6,9 @@
 #include "Camera/CameraComponent.h"
 #include "Weapons/Bomb.h"
 #include "Engine/World.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/AudioComponent.h"
+#include "Sound/SoundCue.h"
 
 // Sets default values
 ABombermanCharacter::ABombermanCharacter()
@@ -17,15 +20,34 @@ ABombermanCharacter::ABombermanCharacter()
 	CameraArm->SetupAttachment(RootComponent);
 	CameraArm->bDoCollisionTest = false;
 	CameraArm->bAbsoluteRotation = true;
-	CameraArm->TargetArmLength = 800.f;
-	CameraArm->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
+	CameraArm->TargetArmLength = 600.f;
+	CameraArm->SetRelativeRotation(FRotator(-60.f, 0.f, 0.f));
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(CameraArm, USpringArmComponent::SocketName);
 
 	// Attack stuff
 	bCanAttack = true;
+	bIsAlive = true;
 	AttackCharges = 1;
+
+	// Load the sound
+	// This should be done via an audio manager
+	/*static ConstructorHelpers::FObjectFinder<USoundCue> BombPlacementSound_BP(TEXT("'/Game/Sounds/Place_Cue.Place_Cue'"));
+
+	PlacementComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("Audio component"));
+	PlacementComponent->bAutoActivate = false;
+	PlacementComponent->SetupAttachment(RootComponent);*/
+
+}
+
+void ABombermanCharacter::DamageActor_Implementation()
+{
+	bIsAlive = false;
+	GotKilledDelegate.Broadcast();
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	DisableInput(PC);
 }
 
 // Called when the game starts or when spawned
@@ -49,30 +71,60 @@ void ABombermanCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 }
 
+void ABombermanCharacter::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	/*if (BombPlacementSound->IsValidLowLevelFast())
+	{
+		PlacementComponent->SetSound(BombPlacementSound);
+	}*/
+}
+
 void ABombermanCharacter::Attack()
 {
-	if (bCanAttack)
+	if (bCanAttack && bIsAlive)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Player tried to spawn a bomb"));
-
-		if (EquipedBomb)
-		{
-			// Do a front check
-
-			FTransform PlayerTransform = GetActorTransform();
-			FVector CurrentLocation = PlayerTransform.GetLocation();
-			CurrentLocation.X = FGenericPlatformMath::RoundToInt(CurrentLocation.X / 100) * 100;
-			CurrentLocation.Y = FGenericPlatformMath::RoundToInt(CurrentLocation.Y / 100) * 100;
-			PlayerTransform.SetLocation(CurrentLocation);
-
-			ABomb* SpawnedBomb = GetWorld()->SpawnActor<ABomb>(EquipedBomb, PlayerTransform, FActorSpawnParameters());
-			if (SpawnedBomb)
-			{
-				UE_LOG(LogTemp, Warning, TEXT("Player spawned a bomb"));
-				
-			}
-		}
-
+		PlaceBomb();
 	}
+}
+
+void ABombermanCharacter::BombExploded()
+{
+	ModifyAmmo(1);
+}
+
+void ABombermanCharacter::VerifyAmmo()
+{
+	bCanAttack = AttackCharges > 0;
+}
+
+void ABombermanCharacter::PlaceBomb()
+{
+	if (EquipedBomb)
+	{
+		// Do a front check
+
+		FTransform PlayerTransform = GetActorTransform();
+		FVector CurrentLocation = PlayerTransform.GetLocation();
+		CurrentLocation.X = FGenericPlatformMath::RoundToInt(CurrentLocation.X / 100) * 100;
+		CurrentLocation.Y = FGenericPlatformMath::RoundToInt(CurrentLocation.Y / 100) * 100;
+		PlayerTransform.SetLocation(CurrentLocation);
+
+		ABomb * SpawnedBomb = GetWorld()->SpawnActor<ABomb>(EquipedBomb, PlayerTransform, FActorSpawnParameters());
+		if (SpawnedBomb)
+		{
+			SpawnedBomb->BombDetonatedDelegate.AddDynamic(this, &ABombermanCharacter::BombExploded);
+			ModifyAmmo(-1);
+			PlayPlacementSound();
+		}
+	}
+}
+
+void ABombermanCharacter::ModifyAmmo(int32 Modifier)
+{
+	AttackCharges += Modifier;
+	AmmoModifiedDelegate.Broadcast(AttackCharges);
+	VerifyAmmo();
 }
 

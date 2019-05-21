@@ -5,6 +5,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Public/TimerManager.h"
 #include "Player/BombermanCharacter.h"
+#include "DrawDebugHelpers.h"
+#include "UDamageableActor.h"
 
 // Sets default values
 ABomb::ABomb()
@@ -19,6 +21,13 @@ ABomb::ABomb()
 	BombMesh->OnComponentEndOverlap.AddDynamic(this, &ABomb::OnBombEndOverlap);
 
 	Timer = 2.f;
+	Range = 1;
+	bAlreadyDetonated = false;
+}
+
+void ABomb::DamageActor_Implementation()
+{
+	Detonate();
 }
 
 // Called when the game starts or when spawned
@@ -46,7 +55,7 @@ void ABomb::AvoidInitialOverlap()
 
 void ABomb::OnBombBeginOverlap(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Overlaped with something"));
+	//UE_LOG(LogTemp, Warning, TEXT("Overlaped with something"));
 }
 
 void ABomb::OnBombEndOverlap(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
@@ -82,6 +91,40 @@ void ABomb::ActivateFuse()
 
 void ABomb::Detonate()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Boom"));
-	Destroy();
+	if (!bAlreadyDetonated)
+	{
+		bAlreadyDetonated = true;
+		FVector BeginLoc = GetActorLocation();
+		FHitResult Hit;
+
+		// Add an end location for the traces
+		TArray<FVector> Locations;
+		float TotalRange = 100.f * Range;
+		Locations.Add(BeginLoc + FVector::RightVector * TotalRange);
+		Locations.Add(BeginLoc - FVector::RightVector * TotalRange);
+		Locations.Add(BeginLoc + FVector::ForwardVector * TotalRange);
+		Locations.Add(BeginLoc - FVector::ForwardVector * TotalRange);
+
+		for (auto Loc : Locations) 
+		{
+			DrawDebugLine(GetWorld(), GetActorLocation(), Loc, FColor::Red, false, 2.f, 0, 4.f);
+
+			GetWorld()->LineTraceSingleByChannel(Hit, BeginLoc, Loc, ECollisionChannel::ECC_WorldDynamic);
+			if (Hit.bBlockingHit)
+			{
+				AActor* HitActor = Hit.GetActor();
+				if (HitActor)
+				{
+					UUDamageableActor* ActorToDamage = Cast<UUDamageableActor>(HitActor);
+
+					if (HitActor->GetClass()->ImplementsInterface(UUDamageableActor::StaticClass()))
+					{
+						IUDamageableActor::Execute_DamageActor(HitActor);
+					}
+				}
+			}
+		}
+		BombDetonatedDelegate.Broadcast();
+		Destroy();
+	}
 }

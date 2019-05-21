@@ -4,16 +4,24 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "UDamageableActor.h"
 #include "Bomb.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FBombDetonatedDelegate);
+
 UCLASS()
-class BOMBERMAN_API ABomb : public AActor
+class BOMBERMAN_API ABomb : public AActor, public IUDamageableActor
 {
 	GENERATED_BODY()
 	
 public:	
 	// Sets default values for this actor's properties
 	ABomb();
+
+	// The interface stuff.
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "DamageControl")
+		void DamageActor();
+	virtual void DamageActor_Implementation() override;
 
 protected:
 	// Called when the game starts or when spawned
@@ -47,7 +55,12 @@ public:
 		int32 Range;
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = BombInfo)
 		float Timer;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = BombInfo)
+		uint32 bAlreadyDetonated : 1;
 
 	FTimerHandle TimerHandle;
+
+	UPROPERTY(BlueprintAssignable)
+		FBombDetonatedDelegate BombDetonatedDelegate;
 
 };

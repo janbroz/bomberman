@@ -3,10 +3,18 @@
 
 #include "BombermanController.h"
 #include "Player/BombermanCharacter.h"
+#include "Widgets/Player/PlayerHUD.h"
+#include "UObject/ConstructorHelpers.h"
 
 ABombermanController::ABombermanController()
 {
 	bShowMouseCursor = true;
+
+	static ConstructorHelpers::FObjectFinder<UClass> PlayerHUD_BP(TEXT("/Game/Blueprints/UI/HUD/PlayerHUD_BP.PlayerHUD_BP_C"));
+	if (PlayerHUD_BP.Object)
+	{
+		HUDClass = PlayerHUD_BP.Object;
+	}
 }
 
 void ABombermanController::SetupInputComponent()
@@ -27,12 +35,24 @@ void ABombermanController::Tick(float DeltaSeconds)
 	AlignToSight();
 }
 
+void ABombermanController::BeginPlay()
+{
+	if (HUDClass)
+	{
+		PlayerHUD = CreateWidget<UPlayerHUD>(this, HUDClass);
+		if (PlayerHUD)
+		{
+			PlayerHUD->AddToViewport();
+		}
+	}
+}
+
 void ABombermanController::HorizontalMovement(float Amount)
 {
 	if (Amount != 0.f)
 	{
 		ABombermanCharacter* Bomberman = Cast<ABombermanCharacter>(GetPawn());
-		if (Bomberman)
+		if (Bomberman && Bomberman->bIsAlive)
 		{
 			Bomberman->AddMovementInput(FVector::RightVector, Amount);
 		}
@@ -44,7 +64,7 @@ void ABombermanController::VerticalMovement(float Amount)
 	if (Amount != 0.f)
 	{
 		ABombermanCharacter* Bomberman = Cast<ABombermanCharacter>(GetPawn());
-		if (Bomberman)
+		if (Bomberman && Bomberman->bIsAlive)
 		{
 			Bomberman->AddMovementInput(FVector::ForwardVector, Amount);
 		}
@@ -54,9 +74,9 @@ void ABombermanController::VerticalMovement(float Amount)
 
 void ABombermanController::PrimaryAttack()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Primary attack"));
+	//UE_LOG(LogTemp, Warning, TEXT("Primary attack"));
 	ABombermanCharacter* Bomberman = Cast<ABombermanCharacter>(GetPawn());
-	if (Bomberman)
+	if (Bomberman && Bomberman->bIsAlive)
 	{
 		Bomberman->Attack();
 	}

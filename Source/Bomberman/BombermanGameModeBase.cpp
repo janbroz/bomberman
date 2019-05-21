@@ -5,6 +5,7 @@
 #include "Player/BombermanCharacter.h"
 #include "Player/BombermanController.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Engine/World.h"
 
 ABombermanGameModeBase::ABombermanGameModeBase()
 {
@@ -19,4 +20,36 @@ ABombermanGameModeBase::ABombermanGameModeBase()
 	}
 
 	PlayerControllerClass = ABombermanController::StaticClass();
+}
+
+
+
+void ABombermanGameModeBase::BeginPlay()
+{
+	Super::BeginPlay();
+
+	SetupPlayerDelegates();
+}
+
+void ABombermanGameModeBase::SetupPlayerDelegates()
+{
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	if (PC)
+	{
+		ABombermanCharacter* Char = Cast<ABombermanCharacter>(PC->GetCharacter());
+		if (Char)
+		{
+			Char->GotKilledDelegate.AddDynamic(this, &ABombermanGameModeBase::PlayerDied);
+		}
+	}
+}
+
+void ABombermanGameModeBase::BeginRound()
+{
+
+}
+
+void ABombermanGameModeBase::PlayerDied()
+{
+	UE_LOG(LogTemp, Warning, TEXT("The player got killed"));
 }
